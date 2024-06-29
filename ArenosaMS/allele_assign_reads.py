@@ -35,11 +35,29 @@ def load_reads(reads_fn):
     print('Reads loaded:',len(reads.keys()))
     return reads
 
+def write_folds():
+    global GUIDE,COUNTS
+    crosses = GUIDE.get_cross_names()
+    replicates = GUIDE.get_replicate_names()
+    genes = COUNTS.get_gene_names()
+    print('gene\tMinOneRep\tMinOneSamp\tFold')
+    for gene in genes:
+        total = 0
+        for cross in crosses:
+            for rep in replicates:
+                mtotal = COUNTS.get_count(gene,cross,rep,'mat')
+                ptotal = COUNTS.get_count(gene,cross,rep,'mat')
+                total = total + mtotal + ptotal
+        print(gene,total, sep='\t')
+
 class count_struct():
     def __init__(self,crosses,replicates):
         self.genes = dict()
         self.crosses = crosses
         self.replicates = replicates
+    def get_gene_names(self):
+        genes = [str(x) for x in self.genes.keys()]
+        return genes
     def increment(self,gene,cross,rep,allele):
         if gene not in self.genes.keys():
             record = dict()
@@ -121,6 +139,7 @@ def process_one(cross,replicate):
             fields = line.split(b',')
             mapped_read = fields[0]
             gene_id = fields[1]
+            gene_id = gene_id.decode("utf-8")
             if mapped_read in mat_dict:
                 COUNTS.increment(gene_id,cross,replicate,'mat')
             if mapped_read in pat_dict:
@@ -153,6 +172,7 @@ def main(guide_fn):
     print(str(GUIDE))
     COUNTS = count_struct(crosses,replicates)
     process_all()
+    write_folds()
 
 if __name__ == '__main__':
     num_params = len(sys.argv)
