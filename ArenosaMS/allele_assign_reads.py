@@ -40,15 +40,22 @@ def write_folds():
     crosses = GUIDE.get_cross_names()
     replicates = GUIDE.get_replicate_names()
     genes = COUNTS.get_gene_names()
-    print('gene\tMinOneRep\tMinOneSamp\tFold')
+    print('gene\tMinOneRep\tMinSumReps\tFold')
     for gene in genes:
         total = 0
+        minOneRep = 0
+        msum = 0
+        psum = 0
         for cross in crosses:
             for rep in replicates:
-                mtotal = COUNTS.get_count(gene,cross,rep,'mat')
-                ptotal = COUNTS.get_count(gene,cross,rep,'mat')
-                total = total + mtotal + ptotal
-        print(gene,total, sep='\t')
+                mcount = COUNTS.get_count(gene,cross,rep,'mat')
+                pcount = COUNTS.get_count(gene,cross,rep,'pat')
+                msum = msum + mcount
+                psum = psum + pcount
+                total = total + mcount + pcount
+                minOneRep = min(minOneRep,min(mcount,pcount))
+        minSumReps = min(msum,psum)
+        print(gene,minOneRep,minSumReps,sep='\t')
 
 class count_struct():
     def __init__(self,crosses,replicates):
@@ -160,6 +167,8 @@ def main(guide_fn):
         header = None
         for line in fin:
             line = line.strip()
+            if line[0]=='#':
+                continue # ignore comments
             if header is None:
                 header = line
                 continue
