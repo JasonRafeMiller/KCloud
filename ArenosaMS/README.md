@@ -1,5 +1,5 @@
 # ArenosaMS
-Our initial dataset. Parents M and S. Crosses MxS and SxM. Four biological replicates. Processed with Slurm on Saga.
+Our initial dataset and prototype for code. Parents M and S. Crosses MxS and SxM. Four biological replicates. Processed with Slurm on Saga.
 
 ## Directory Layout
 * BR1 (and similar for BR2, BR3, BR4: 4 total)
