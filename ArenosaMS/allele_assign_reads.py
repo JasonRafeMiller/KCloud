@@ -2,8 +2,6 @@ import sys
 import gzip
 from datetime import datetime
 import time
-import psutil
-import pickle
 
 # Input 1: Genes file.
 # Contains read IDs assigned to genes by Bowtie.
@@ -37,52 +35,70 @@ def load_reads(reads_fn):
     print('Reads loaded:',len(reads.keys()))
     return reads
 
-def process_reads(parent,replicate,read_dict,genes_fn):
-    '''
-    assume parent's read IDs are in dict
-    accumulate statistics while streaming genes file
-    '''
-    num_reads = len(read_dict.keys())
-    num_maps = 0
-    with gzip.open(genes_fn,'rb') as fin:
-        for line in fin:
-            line = line.strip()
-            fields = line.split(b',')
-            mapped_read = fields[0]
-            gene_id = fields[1]
-            if mapped_read in read_dict:
-                num_maps += 1
-                increment(parent,replicate,gene_id)
-    print(parent,num_reads,'reads in',num_maps,'reads out')
+class count_struct():
+    def __init__(self,crosses,replicates):
+        self.genes = dict()
+        self.crosses = crosses
+        self.replicates = replicates
+    def increment(self,gene,cross,rep,allele):
+        if gene not in self.genes.keys():
+            record = dict()
+            for cross in self.crosses:
+                for rep in self.replicates:
+                    for allele in ('mat','pat'):
+                        key=(cross,rep,allele)
+                        record[key]=0
+            self.genes[gene]=record
+        record = self.genes[gene]
+        key=(cross,rep,allele)
+        record[key] += 1
+    def get_count(self,gene,cross,rep,allele):
+        record = self.genes[gene]
+        key=(cross,rep,allele)
+        value = record[key]
+        return value
 
-def increment(parent,replicate,gene_bytes):
-    gene_id = gene_bytes.decode("utf-8")
-    if gene_id not in ACCOUNTS:
-        record = gene_record()
-        ACCOUNTS[gene_id] = record
-    record = ACCOUNTS[gene_id]
-    if len(record.mat_reps)<replicate:
-        record.mat_reps.append(0)
-    if len(record.pat_reps)<replicate:
-        record.pat_reps.append(0)
-    if parent=='mat':
-        record.mat_reps[replicate-1] += 1
-    elif parent=='pat':
-        record.pat_reps[replicate-1] += 1
-    else:
-        raise Exception('Unrecognized parent '+parent)
-
-class gene_record():
-    '''Keep count of reads per rep per allele.'''
+class guide_struct():
     def __init__(self):
-        self.mat_reps = list() # list of read counts per replicate
-        self.pat_reps = list()
+        self.samples = dict()
     def __str__(self):
-        show = '#mat:'+str(self.mat_reps)
-        show = show + ' #pat:'+str(self.pat_reps)
+        show = "Files Guide"
+        for key in self.samples.keys():
+            record = self.samples[key]
+            show += '\n'+str(key)
+            show += ' gene='+record['gene']
+            show += ' mat='+record['mat']
+            show += ' pat='+record['pat']
         return show
+    def add(self,type,cross,rep,filename):
+        key = (cross,rep)
+        if key not in self.samples.keys():
+            record = dict()
+            self.samples[key]=record
+        record=self.samples[key]
+        record[type]=filename
+    def get_samples(self):
+        return list(self.samples.keys())
+    def get_filename(self,type,cross,rep):
+        # type is one of {gene, mat, pat}
+        key = (cross,rep)
+        record = self.samples[key]
+        filename = record[type]
+        return filename
+    def get_cross_names(self):
+        names = set()
+        for key in self.samples.keys():
+            (cross,rep)=key
+            names.add(cross)
+        return names
+    def get_replicate_names(self):
+        names = set()
+        for key in self.samples.keys():
+            (cross,rep)=key
+            names.add(rep)
+        return names
 
-def main(genes_fn,reads_list):
+def process_one(cross,replicate):
     '''
     initialize data structure for counts
     for each parent file:
@@ -91,54 +107,63 @@ def main(genes_fn,reads_list):
         accumulate counts in data structure
     compute and output the totals
     '''
-    global ACCOUNTS
-    ACCOUNTS = dict()
-    mat_reps = 0
-    pat_reps = 0
-    for reads_fn in reads_list:
-        print('Processing',reads_fn)
-        if 'mat' in reads_fn and 'pat' not in reads_fn:
-            parent = 'mat'
-            mat_reps += 1
-            this_rep = mat_reps
-        elif 'pat' in reads_fn and 'mat' not in reads_fn:
-            parent = 'pat'
-            pat_reps += 1
-            this_rep = pat_reps
-        else:
-            raise Exception('Cannot extract parent from filename '+reads_fn)
-        read_dict=load_reads(reads_fn)
-        process_reads(parent,this_rep,read_dict,genes_fn)
-    if mat_reps != pat_reps:
-        print(mat_reps,'biological replicate files, maternal')
-        print(pat_reps,'biological replicate files, paternal')
-        raise Exception('Replicate imbalance!')
-    show_totals()
+    global GUIDE
+    gene_file = GUIDE.get_filename('gene',cross,replicate)
+    mat_file = GUIDE.get_filename('mat',cross,replicate)
+    pat_file = GUIDE.get_filename('pat',cross,replicate)
+    mat_dict = load_reads(mat_file)
+    pat_dict = load_reads(pat_file)
+    # accumulate statistics while streaming genes file
+    global COUNTS
+    with gzip.open(gene_file,'rb') as fin:
+        for line in fin:
+            line = line.strip()
+            fields = line.split(b',')
+            mapped_read = fields[0]
+            gene_id = fields[1]
+            if mapped_read in mat_dict:
+                COUNTS.increment(gene_id,cross,replicate,'mat')
+            if mapped_read in pat_dict:
+                COUNTS.increment(gene_id,cross,replicate,'pat')
 
-def show_totals():
-    for gene_id in ACCOUNTS.keys():
-        record = ACCOUNTS[gene_id]
-        print(gene_id, record)
+def process_all():
+    global GUIDE
+    crosses = GUIDE.get_cross_names()
+    replicates = GUIDE.get_replicate_names()
+    for cross in crosses:
+        for replicate in replicates:
+            process_one(cross,replicate)
+
+def main(guide_fn):
+    global GUIDE,COUNTS
+    GUIDE = guide_struct()
+    with open (guide_fn, 'r') as fin:
+        header = None
+        for line in fin:
+            line = line.strip()
+            if header is None:
+                header = line
+                continue
+            type,cross,rep,filename=line.split('\t')
+            GUIDE.add(type,cross,rep,filename)
+    crosses = GUIDE.get_cross_names()
+    replicates = GUIDE.get_replicate_names()
+    print('Crosses:',crosses)
+    print('Replicates:',replicates)
+    print(str(GUIDE))
+    COUNTS = count_struct(crosses,replicates)
+    process_all()
 
 if __name__ == '__main__':
     num_params = len(sys.argv)
-    if num_params <= 2 or num_params%2 != 0:
-        print('Parameters seen:', sys.argv)
+    if num_params != 2:
+        print('Expect one parameter: files_guide.tsv')
         print('Num parameters seen:',num_params)
-        print('Required Parameters: GENES_FILE < MATBR1 PATBR1 >...')
+        print('Parameters seen:', sys.argv)
         sys.exit(1)
-
-    print('Get process handle...')
-    process = psutil.Process()
 
     print('Parse argv...')
     SCRIPT_FN = sys.argv[0]
-    GENES_FN = sys.argv[1]
-    READS_LIST = list()
-    for p in range(2,num_params):
-        READS_LIST.append(sys.argv[p])
+    GUIDE_FN = sys.argv[1]
 
-    main(GENES_FN,READS_LIST)
-
-    print(datetime.now(),'now')
-    print('Done')
+    main(GUIDE_FN)
