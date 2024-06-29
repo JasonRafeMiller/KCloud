@@ -37,25 +37,37 @@ def load_reads(reads_fn):
 
 def write_folds():
     global GUIDE,COUNTS
+    MAXINT = 1000000   # for min function
     crosses = GUIDE.get_cross_names()
     replicates = GUIDE.get_replicate_names()
     genes = COUNTS.get_gene_names()
     print('gene\tMinOneRep\tMinSumReps\tFold')
     for gene in genes:
-        total = 0
-        minOneRep = 0
-        msum = 0
-        psum = 0
+        minOneRep = MAXINT
+        minSumReps = MAXINT
+        correctMaps = 0
+        incorrectMaps = 0
         for cross in crosses:
+            pref = GUIDE.get_preference(cross)
+            sumReps = 0
             for rep in replicates:
                 mcount = COUNTS.get_count(gene,cross,rep,'mat')
                 pcount = COUNTS.get_count(gene,cross,rep,'pat')
-                msum = msum + mcount
-                psum = psum + pcount
-                total = total + mcount + pcount
-                minOneRep = min(minOneRep,min(mcount,pcount))
-        minSumReps = min(msum,psum)
-        print(gene,minOneRep,minSumReps,sep='\t')
+                oneRep = mcount + pcount
+                sumReps = sumReps + oneRep
+                minOneRep = min(minOneRep,oneRep)
+                if pref=='mat':
+                    correctMaps += mcount
+                    incorrectMaps += pcount
+                else:
+                    correctMaps += pcount
+                    incorrectMaps += mcount
+        minSumReps = min(minSumReps,minOneRep)
+        if incorrectMaps==0:
+            fold = MAXINT
+        else:
+            fold = (correctMaps-incorrectMaps)/incorrectMaps
+        print(gene,minOneRep,minSumReps,fold,sep='\t')
 
 class count_struct():
     def __init__(self,crosses,replicates):
@@ -86,14 +98,17 @@ class count_struct():
 class guide_struct():
     def __init__(self):
         self.samples = dict()
+        self.preferences = dict()
     def __str__(self):
         show = "Files Guide"
         for key in self.samples.keys():
+            cross,rep = key
             record = self.samples[key]
             show += '\n'+str(key)
-            show += ' gene='+record['gene']
+            show += ' maps='+record['gene']
             show += ' mat='+record['mat']
             show += ' pat='+record['pat']
+            show += ' pref='+self.preferences[cross]
         return show
     def add(self,type,cross,rep,filename):
         key = (cross,rep)
@@ -102,8 +117,15 @@ class guide_struct():
             self.samples[key]=record
         record=self.samples[key]
         record[type]=filename
+        # First parent listed is the preferred one.
+        # Assume same for all biological replicates.
+        if cross not in self.preferences.keys():
+            if type=='mat' or type=='pat':
+                self.preferences[cross]=type
     def get_samples(self):
         return list(self.samples.keys())
+    def get_preference(self,cross):
+        return self.preferences[cross]
     def get_filename(self,type,cross,rep):
         # type is one of {gene, mat, pat}
         key = (cross,rep)
