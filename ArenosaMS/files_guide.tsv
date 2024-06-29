@@ -1,0 +1,31 @@
+# This file drives allele_assign_reads.py
+# First line is header showing 4 columns.
+# Every experiment requires 3 lines: gene, mat, pat.
+# Line order matters for fold; list correct parent first.
+# Example: mat=2 then pat=1 gives 1-fold mat over pat.
+# Consider using the revised definition of fold change.
+type	cross	rep	filename
+gene	MxM	BR1	BR1/map_MxM.csv.gz
+mat	MxM	BR1	BR1/M_MxS.mat.IDs.txt.gz
+pat	MxM	BR1	BR1/M_MxS.pat.IDs.txt.gz
+gene	SxS	BR1	BR1/map_SxS.csv.gz
+pat	SxS	BR1	BR1/S_MxS.pat.IDs.txt.gz
+mat	SxS	BR1	BR1/S_MxS.mat.IDs.txt.gz
+gene	MxM	BR2	BR2/map_MxM.csv.gz
+mat	MxM	BR2	BR2/M_MxS.mat.IDs.txt.gz
+pat	MxM	BR2	BR2/M_MxS.pat.IDs.txt.gz
+gene	SxS	BR2	BR2/map_SxS.csv.gz
+pat	SxS	BR2	BR2/S_MxS.pat.IDs.txt.gz
+mat	SxS	BR2	BR2/S_MxS.mat.IDs.txt.gz
+gene	MxM	BR3	BR3/map_MxM.csv.gz
+mat	MxM	BR3	BR3/M_MxS.mat.IDs.txt.gz
+pat	MxM	BR3	BR3/M_MxS.pat.IDs.txt.gz
+gene	SxS	BR3	BR3/map_SxS.csv.gz
+pat	SxS	BR3	BR3/S_MxS.pat.IDs.txt.gz
+mat	SxS	BR3	BR3/S_MxS.mat.IDs.txt.gz
+gene	MxM	BR4	BR4/map_MxM.csv.gz
+mat	MxM	BR4	BR4/M_MxS.mat.IDs.txt.gz
+pat	MxM	BR4	BR4/M_MxS.pat.IDs.txt.gz
+gene	SxS	BR4	BR4/map_SxS.csv.gz
+pat	SxS	BR4	BR3/S_MxS.pat.IDs.txt.gz
+mat	SxS	BR4	BR4/S_MxS.mat.IDs.txt.gz
