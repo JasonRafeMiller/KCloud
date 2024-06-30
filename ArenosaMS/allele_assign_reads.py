@@ -34,41 +34,42 @@ def load_reads(reads_fn):
             reads[parent_read]=True
     return reads
 
-def write_folds():
+def write_folds(output_fn):
     global GUIDE,COUNTS
     MAXINT = 1000000   # for min function
     crosses = GUIDE.get_cross_names()
     replicates = GUIDE.get_replicate_names()
     genes = COUNTS.get_gene_names()
-    print('gene\tMinOneRep\tMinSumReps\tFold')
-    for gene in genes:
-        minOneRep = MAXINT
-        minSumReps = MAXINT
-        correctMaps = 1.0 # pseudocount
-        incorrectMaps = 1.0 #pseudocount
-        for cross in crosses:
-            pref = GUIDE.get_preference(cross)
-            sumReps = 0
-            for rep in replicates:
-                mcount = COUNTS.get_count(gene,cross,rep,'mat')
-                pcount = COUNTS.get_count(gene,cross,rep,'pat')
-                oneRep = mcount + pcount
-                sumReps = sumReps + oneRep
-                if pref=='mat':
-                    correctMaps += mcount
-                    incorrectMaps += pcount
-                else:
-                    correctMaps += pcount
-                    incorrectMaps += mcount
-                minOneRep = min(minOneRep,oneRep)
-                # debug print
-                #print(gene,cross,rep,mcount,pcount,correctMaps,incorrectMaps)
-        minSumReps = min(minSumReps,sumReps)
-        fold = (correctMaps-incorrectMaps)/incorrectMaps
-        # production print:
-        print(gene,minOneRep,minSumReps,fold,sep='\t')
-        # debug print:
-        #print(gene,minOneRep,minSumReps,correctMaps,incorrectMaps,sep='\t')
+    with open (output_fn, 'w') as fout:
+        print('gene\tMinOneRep\tMinSumReps\tFold',file=fout)
+        for gene in genes:
+            minOneRep = MAXINT
+            minSumReps = MAXINT
+            correctMaps = 1.0 # pseudocount
+            incorrectMaps = 1.0 #pseudocount
+            for cross in crosses:
+                pref = GUIDE.get_preference(cross)
+                sumReps = 0
+                for rep in replicates:
+                    mcount = COUNTS.get_count(gene,cross,rep,'mat')
+                    pcount = COUNTS.get_count(gene,cross,rep,'pat')
+                    oneRep = mcount + pcount
+                    sumReps = sumReps + oneRep
+                    if pref=='mat':
+                        correctMaps += mcount
+                        incorrectMaps += pcount
+                    else:
+                        correctMaps += pcount
+                        incorrectMaps += mcount
+                    minOneRep = min(minOneRep,oneRep)
+                    # debug print
+                    #print(gene,cross,rep,mcount,pcount,correctMaps,incorrectMaps)
+            minSumReps = min(minSumReps,sumReps)
+            fold = (correctMaps-incorrectMaps)/incorrectMaps
+            # production print:
+            print(gene,minOneRep,minSumReps,fold,sep='\t',file=fout)
+            # debug print:
+            #print(gene,minOneRep,minSumReps,correctMaps,incorrectMaps,sep='\t')
 
 class count_struct():
     def __init__(self,crosses,replicates):
@@ -191,7 +192,7 @@ def process_all():
         for replicate in replicates:
             process_one(cross,replicate)
 
-def main(guide_fn):
+def main(guide_fn,output_fn):
     global GUIDE,COUNTS
     GUIDE = guide_struct()
     with open (guide_fn, 'r') as fin:
@@ -212,12 +213,12 @@ def main(guide_fn):
     print(str(GUIDE))
     COUNTS = count_struct(crosses,replicates)
     process_all()
-    write_folds()
+    write_folds(output_fn)
 
 if __name__ == '__main__':
     num_params = len(sys.argv)
-    if num_params != 2:
-        print('Expect one parameter: files_guide.tsv')
+    if num_params != 3:
+        print('Expect two parameters: files_guide.tsv output.tsv')
         print('Num parameters seen:',num_params)
         print('Parameters seen:', sys.argv)
         sys.exit(1)
@@ -225,5 +226,6 @@ if __name__ == '__main__':
     print('Parse argv...')
     SCRIPT_FN = sys.argv[0]
     GUIDE_FN = sys.argv[1]
+    OUTPUT_FN = sys.argv[2]
 
-    main(GUIDE_FN)
+    main(GUIDE_FN,OUTPUT_FN)
