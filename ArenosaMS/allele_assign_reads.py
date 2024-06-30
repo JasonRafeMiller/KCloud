@@ -32,7 +32,6 @@ def load_reads(reads_fn):
             line = line.strip()
             parent_read = line  # bytes
             reads[parent_read]=True
-    print('Reads loaded:',len(reads.keys()))
     return reads
 
 def write_folds():
@@ -158,10 +157,15 @@ def process_one(cross,replicate):
     gene_file = GUIDE.get_filename('gene',cross,replicate)
     mat_file = GUIDE.get_filename('mat',cross,replicate)
     pat_file = GUIDE.get_filename('pat',cross,replicate)
+    print('Cross',cross,'replicate',replicate)
     mat_dict = load_reads(mat_file)
+    print('Mat reads loaded:',len(mat_dict.keys()))
     pat_dict = load_reads(pat_file)
+    print('Pat reads loaded:',len(pat_dict.keys()))
+    print('Streaming',gene_file,'...')
     # accumulate statistics while streaming genes file
     global COUNTS
+    cnt=0
     with gzip.open(gene_file,'rb') as fin:
         for line in fin:
             line = line.strip()
@@ -173,6 +177,8 @@ def process_one(cross,replicate):
                 COUNTS.increment(gene_id,cross,replicate,'mat')
             if mapped_read in pat_dict:
                 COUNTS.increment(gene_id,cross,replicate,'pat')
+            cnt += 1
+    print(cnt,'genes processed.')
 
 def process_all():
     global GUIDE
