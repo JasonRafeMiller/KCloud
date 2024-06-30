@@ -44,8 +44,8 @@ def write_folds():
     for gene in genes:
         minOneRep = MAXINT
         minSumReps = MAXINT
-        correctMaps = 1 # pseudocount
-        incorrectMaps = 1 #pseudocount
+        correctMaps = 1.0 # pseudocount
+        incorrectMaps = 1.0 #pseudocount
         for cross in crosses:
             pref = GUIDE.get_preference(cross)
             sumReps = 0
@@ -61,12 +61,14 @@ def write_folds():
                     correctMaps += pcount
                     incorrectMaps += mcount
                 minOneRep = min(minOneRep,oneRep)
+                # debug print
+                #print(gene,cross,rep,mcount,pcount,correctMaps,incorrectMaps)
         minSumReps = min(minSumReps,sumReps)
         fold = (correctMaps-incorrectMaps)/incorrectMaps
         # production print:
-        #print(gene,minOneRep,minSumReps,fold,sep='\t')
+        print(gene,minOneRep,minSumReps,fold,sep='\t')
         # debug print:
-        print(gene,minOneRep,minSumReps,correctMaps,incorrectMaps,sep='\t')
+        #print(gene,minOneRep,minSumReps,correctMaps,incorrectMaps,sep='\t')
 
 class count_struct():
     def __init__(self,crosses,replicates):
@@ -178,7 +180,8 @@ def process_one(cross,replicate):
             if mapped_read in pat_dict:
                 COUNTS.increment(gene_id,cross,replicate,'pat')
             cnt += 1
-    print(cnt,'genes processed.')
+    num_genes = len(COUNTS.get_gene_names())
+    print('Processed',cnt,'maps to',num_genes,'genes.')
 
 def process_all():
     global GUIDE
