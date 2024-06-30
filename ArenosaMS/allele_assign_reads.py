@@ -44,8 +44,8 @@ def write_folds():
     for gene in genes:
         minOneRep = MAXINT
         minSumReps = MAXINT
-        correctMaps = 0
-        incorrectMaps = 0
+        correctMaps = 1 # pseudocount
+        incorrectMaps = 1 #pseudocount
         for cross in crosses:
             pref = GUIDE.get_preference(cross)
             sumReps = 0
@@ -62,10 +62,7 @@ def write_folds():
                     incorrectMaps += mcount
                 minOneRep = min(minOneRep,oneRep)
         minSumReps = min(minSumReps,sumReps)
-        if incorrectMaps==0:
-            fold = MAXINT
-        else:
-            fold = (correctMaps-incorrectMaps)/incorrectMaps
+        fold = (correctMaps-incorrectMaps)/incorrectMaps
         # production print:
         #print(gene,minOneRep,minSumReps,fold,sep='\t')
         # debug print:
