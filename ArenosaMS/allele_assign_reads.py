@@ -54,19 +54,22 @@ def write_folds():
                 pcount = COUNTS.get_count(gene,cross,rep,'pat')
                 oneRep = mcount + pcount
                 sumReps = sumReps + oneRep
-                minOneRep = min(minOneRep,oneRep)
                 if pref=='mat':
                     correctMaps += mcount
                     incorrectMaps += pcount
                 else:
                     correctMaps += pcount
                     incorrectMaps += mcount
-        minSumReps = min(minSumReps,minOneRep)
+                minOneRep = min(minOneRep,oneRep)
+        minSumReps = min(minSumReps,sumReps)
         if incorrectMaps==0:
             fold = MAXINT
         else:
             fold = (correctMaps-incorrectMaps)/incorrectMaps
-        print(gene,minOneRep,minSumReps,fold,sep='\t')
+        # production print:
+        #print(gene,minOneRep,minSumReps,fold,sep='\t')
+        # debug print:
+        print(gene,minOneRep,minSumReps,correctMaps,incorrectMaps,sep='\t')
 
 class count_struct():
     def __init__(self,crosses,replicates):
@@ -195,7 +198,7 @@ def main(guide_fn):
         header = None
         for line in fin:
             line = line.strip()
-            if line[0]=='#':
+            if len(line)==0 or line[0]=='#':
                 continue # ignore comments
             if header is None:
                 header = line
