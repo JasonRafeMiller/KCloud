@@ -34,20 +34,24 @@ def load_reads(reads_fn):
             reads[parent_read]=True
     return reads
 
-def write_folds(output_fn):
+def write_folds(output_prefix):
+    output_summary = output_prefix+'.tsv'
+    output_detail = output_prefix+'.debug'
     global GUIDE,COUNTS
     MAXINT = 1000000   # for min function
     crosses = GUIDE.get_cross_names()
     replicates = GUIDE.get_replicate_names()
     genes = COUNTS.get_gene_names()
-    with open (output_fn, 'w') as fout:
+    with open (output_summary, 'w') as fout,\
+    open(output_detail, 'w') as ferr:
         print('gene\tMinOneRep\tMinSumReps\tFold',file=fout)
         for gene in genes:
-            minOneRep = MAXINT
+            minOneRep = -1 # reassigned below
             minSumReps = MAXINT
             correctMaps = 1.0 # pseudocount
             incorrectMaps = 1.0 #pseudocount
             for cross in crosses:
+                minOneRep = MAXINT
                 pref = GUIDE.get_preference(cross)
                 sumReps = 0
                 for rep in replicates:
@@ -62,14 +66,11 @@ def write_folds(output_fn):
                         correctMaps += pcount
                         incorrectMaps += mcount
                     minOneRep = min(minOneRep,oneRep)
-                    # debug print
-                    #print(gene,cross,rep,mcount,pcount,correctMaps,incorrectMaps)
-            minSumReps = min(minSumReps,sumReps)
+                    print(gene,cross,rep,mcount,pcount,correctMaps,incorrectMaps,sep=',',file=ferr)
+                minSumReps = min(minSumReps,sumReps)
             fold = (correctMaps-incorrectMaps)/incorrectMaps
-            # production print:
             print(gene,minOneRep,minSumReps,fold,sep='\t',file=fout)
-            # debug print:
-            #print(gene,minOneRep,minSumReps,correctMaps,incorrectMaps,sep='\t')
+            print(gene,minOneRep,minSumReps,correctMaps,incorrectMaps,sep=',',file=ferr)
 
 class count_struct():
     def __init__(self,crosses,replicates):
@@ -162,13 +163,14 @@ def process_one(cross,replicate):
     pat_file = GUIDE.get_filename('pat',cross,replicate)
     print('Cross',cross,'replicate',replicate)
     mat_dict = load_reads(mat_file)
-    print('Mat reads loaded:',len(mat_dict.keys()))
+    print(len(mat_dict.keys()),'mat IDs from',mat_file)
     pat_dict = load_reads(pat_file)
-    print('Pat reads loaded:',len(pat_dict.keys()))
-    print('Streaming',gene_file,'...')
+    print(len(pat_dict.keys()),'pat IDs from',pat_file)
+    print('Streaming maps from',gene_file,'...')
     # accumulate statistics while streaming genes file
     global COUNTS
-    cnt=0
+    total=0
+    mapped=0
     with gzip.open(gene_file,'rb') as fin:
         for line in fin:
             line = line.strip()
@@ -176,13 +178,20 @@ def process_one(cross,replicate):
             mapped_read = fields[0]
             gene_id = fields[1]
             gene_id = gene_id.decode("utf-8")
+            is_mapped = 0
             if mapped_read in mat_dict:
                 COUNTS.increment(gene_id,cross,replicate,'mat')
+                is_mapped += 1
             if mapped_read in pat_dict:
                 COUNTS.increment(gene_id,cross,replicate,'pat')
-            cnt += 1
+                is_mapped += 1
+            if is_mapped > 0:
+                mapped += 1
+                if is_mapped > 1:
+                    raise Exception ('Assigned to mat and pat:',mapped_read)
+            total += 1
     num_genes = len(COUNTS.get_gene_names())
-    print('Processed',cnt,'maps to',num_genes,'genes.')
+    print('Processed',total,'maps, assigned',mapped,'reads to',num_genes,'genes.')
 
 def process_all():
     global GUIDE
@@ -192,7 +201,7 @@ def process_all():
         for replicate in replicates:
             process_one(cross,replicate)
 
-def main(guide_fn,output_fn):
+def main(guide_fn,output_prefix):
     global GUIDE,COUNTS
     GUIDE = guide_struct()
     with open (guide_fn, 'r') as fin:
@@ -213,12 +222,12 @@ def main(guide_fn,output_fn):
     print(str(GUIDE))
     COUNTS = count_struct(crosses,replicates)
     process_all()
-    write_folds(output_fn)
+    write_folds(output_prefix)
 
 if __name__ == '__main__':
+    print('Expect two parameters: files_guide.tsv [output_prefix]')
     num_params = len(sys.argv)
     if num_params != 3:
-        print('Expect two parameters: files_guide.tsv output.tsv')
         print('Num parameters seen:',num_params)
         print('Parameters seen:', sys.argv)
         sys.exit(1)
@@ -226,6 +235,6 @@ if __name__ == '__main__':
     print('Parse argv...')
     SCRIPT_FN = sys.argv[0]
     GUIDE_FN = sys.argv[1]
-    OUTPUT_FN = sys.argv[2]
+    OUTPUT_PREFIX = sys.argv[2]
 
-    main(GUIDE_FN,OUTPUT_FN)
+    main(GUIDE_FN,OUTPUT_PREFIX)
