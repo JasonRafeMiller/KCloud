@@ -47,11 +47,11 @@ def write_folds(output_prefix):
         print('gene\tMinOneRep\tMinSumReps\tFold',file=fout)
         for gene in genes:
             minOneRep = -1 # reassigned below
-            minSumReps = MAXINT
+            minSumReps = MAXINT # initialize once per gene
+            minOneRep = MAXINT # initialize once per gene
             correctMaps = 0
             incorrectMaps = 0
             for cross in crosses:
-                minOneRep = MAXINT
                 pref = GUIDE.get_preference(cross)
                 sumReps = 0
                 for rep in replicates:
@@ -66,7 +66,9 @@ def write_folds(output_prefix):
                     print(gene,cross,rep,mcount,pcount,C,I,sep=',',file=ferr)
                     correctMaps += C
                     incorrectMaps += I
+                    # Per gene: mininum m+p from any cross+rep.
                     minOneRep = min(minOneRep,oneRep)
+                # Per gene: minimum m+p from either cross. 
                 minSumReps = min(minSumReps,sumReps)
             fold = compute_fold(correctMaps,incorrectMaps)
             print(gene,minOneRep,minSumReps,fold,sep='\t',file=fout)
