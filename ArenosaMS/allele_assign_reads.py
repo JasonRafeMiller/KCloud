@@ -48,8 +48,8 @@ def write_folds(output_prefix):
         for gene in genes:
             minOneRep = -1 # reassigned below
             minSumReps = MAXINT
-            correctMaps = 1.0 # pseudocount
-            incorrectMaps = 1.0 #pseudocount
+            correctMaps = 0
+            incorrectMaps = 0
             for cross in crosses:
                 minOneRep = MAXINT
                 pref = GUIDE.get_preference(cross)
@@ -60,17 +60,23 @@ def write_folds(output_prefix):
                     oneRep = mcount + pcount
                     sumReps = sumReps + oneRep
                     if pref=='mat':
-                        correctMaps += mcount
-                        incorrectMaps += pcount
+                        C,I=mcount,pcount
                     else:
-                        correctMaps += pcount
-                        incorrectMaps += mcount
+                        C,I=pcount,mcount
+                    print(gene,cross,rep,mcount,pcount,C,I,sep=',',file=ferr)
+                    correctMaps += C
+                    incorrectMaps += I
                     minOneRep = min(minOneRep,oneRep)
-                    print(gene,cross,rep,mcount,pcount,correctMaps,incorrectMaps,sep=',',file=ferr)
                 minSumReps = min(minSumReps,sumReps)
-            fold = (correctMaps-incorrectMaps)/incorrectMaps
+            fold = compute_fold(correctMaps,incorrectMaps)
             print(gene,minOneRep,minSumReps,fold,sep='\t',file=fout)
-            print(gene,minOneRep,minSumReps,correctMaps,incorrectMaps,sep=',',file=ferr)
+
+def compute_fold(current,base):
+    '''Compute fold change such that 2-vs-1 is 1-fold increase.'''
+    # Consider switch to definition where 2-vs-1 is 2-fold change.
+    # Use pseudocount 1 to avoid divide by zero.
+    fold = (current-base)/max(1,base)
+    return fold
 
 class count_struct():
     def __init__(self,crosses,replicates):
@@ -80,15 +86,17 @@ class count_struct():
     def get_gene_names(self):
         genes = [str(x) for x in self.genes.keys()]
         return genes
+    def _initialize_gene(self,gene):
+        record = dict()
+        for C in self.crosses:
+            for R in self.replicates:
+                for A in ('mat','pat'):
+                    key=(C,R,A)
+                    record[key]=0
+        self.genes[gene]=record
     def increment(self,gene,cross,rep,allele):
         if gene not in self.genes.keys():
-            record = dict()
-            for cross in self.crosses:
-                for rep in self.replicates:
-                    for allele in ('mat','pat'):
-                        key=(cross,rep,allele)
-                        record[key]=0
-            self.genes[gene]=record
+            self._initialize_gene(gene)
         record = self.genes[gene]
         key=(cross,rep,allele)
         record[key] += 1
@@ -175,9 +183,9 @@ def process_one(cross,replicate):
         for line in fin:
             line = line.strip()
             fields = line.split(b',')
-            mapped_read = fields[0]
-            gene_id = fields[1]
-            gene_id = gene_id.decode("utf-8")
+            mapped_read = fields[0] # bytes
+            gene_id = fields[1] # bytes
+            gene_id = gene_id.decode("utf-8") # string
             is_mapped = 0
             if mapped_read in mat_dict:
                 COUNTS.increment(gene_id,cross,replicate,'mat')
