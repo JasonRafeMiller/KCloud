@@ -46,7 +46,7 @@ def main(infile1,infile2,outfile1,outfile2):
                 # print("Too short:", R1_mers, R2_mers)
             else:
                 db1_count = int(R1_db1)+int(R2_db1)
-                db2_count = int(R2_db2)+int(R2_db2)
+                db2_count = int(R1_db2)+int(R2_db2)
                 if (db1_count>0 and db2_count==0):
                     print(R1_name, file=OF1)
                     # print("Allelic 1:",R1_name,R1_db1,R1_db2,R2_db1,R2_db2)
