@@ -10,6 +10,7 @@ set -o errexit # exit on errors
 # Submit this like this:
 # cd BR3; sbatch --account=${ACCOUNT} ../make_fasta.sh MxS_BR3
 
+echo $0 $@
 echo "Expect read filename prefix like MxS_BR1."
 if [[ $# -eq 0 ]] ; then
     echo "Filename required."
